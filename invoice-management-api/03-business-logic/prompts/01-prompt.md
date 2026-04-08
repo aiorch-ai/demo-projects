@@ -1,6 +1,6 @@
 # Orchestrator Prompt — Business Logic Engine
 
-Read the task file: `/opt/orchestrator/v3/sample_tasks/invoice-management-api/03-business-logic/01-invoice-engine.md`
+Read the task file: `/opt/orchestrator/v3/sample_tasks/demo-projects/invoice-management-api/03-business-logic/01-invoice-engine.md`
 
 ## Delivery Principals
 

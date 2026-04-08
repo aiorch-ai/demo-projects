@@ -1,6 +1,6 @@
 # Orchestrator Prompt — Database Layer
 
-Read the task file: `/opt/orchestrator/v3/sample_tasks/invoice-management-api/01-database-layer/01-database-schema-and-setup.md`
+Read the task file: `/opt/orchestrator/v3/sample_tasks/demo-projects/invoice-management-api/01-database-layer/01-database-schema-and-setup.md`
 
 ## Delivery Principals
 

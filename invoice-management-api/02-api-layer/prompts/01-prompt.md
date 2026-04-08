@@ -1,6 +1,6 @@
 # Orchestrator Prompt — API Layer
 
-Read the task file: `/opt/orchestrator/v3/sample_tasks/invoice-management-api/02-api-layer/01-rest-endpoints.md`
+Read the task file: `/opt/orchestrator/v3/sample_tasks/demo-projects/invoice-management-api/02-api-layer/01-rest-endpoints.md`
 
 ## Delivery Principals
 

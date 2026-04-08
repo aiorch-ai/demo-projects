@@ -1,6 +1,6 @@
 # Orchestrator Prompt — Security, Middleware, and Testing
 
-Read the task file: `/opt/orchestrator/v3/sample_tasks/invoice-management-api/04-security-and-testing/01-security-and-tests.md`
+Read the task file: `/opt/orchestrator/v3/sample_tasks/demo-projects/invoice-management-api/04-security-and-testing/01-security-and-tests.md`
 
 ## Delivery Principals
 

@@ -1,6 +1,6 @@
 # Orchestrator Prompt — Bookmark Manager API
 
-Read the task file: `/opt/orchestrator/v3/sample_tasks/bookmark-api/task.md`
+Read the task file: `/opt/orchestrator/v3/sample_tasks/demo-projects/bookmark-api/task.md`
 
 ## Delivery Principals
 
