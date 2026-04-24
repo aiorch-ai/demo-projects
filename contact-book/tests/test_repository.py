@@ -139,6 +139,16 @@ def test_update_bumps_updated_at(db):
     assert updated.updated_at != original_updated_at
 
 
+def test_update_empty_bumps_updated_at(db):
+    contact = create(ContactCreate(name="Grant"))
+    original_updated_at = contact.updated_at
+    time.sleep(1.1)
+    updated = update(contact.id, ContactUpdate())
+    assert updated is not None
+    assert updated.name == "Grant"
+    assert updated.updated_at != original_updated_at
+
+
 def test_update_nonexistent_id(db):
     result = update("nonexistent-id-67890", ContactUpdate(name="Nobody"))
     assert result is None
@@ -169,6 +179,15 @@ def test_search_by_name_substring(db):
     results = search_by_name("Smith")
     assert len(results) == 1
     assert results[0].name == "Alice Smith"
+
+
+def test_search_by_name_prefix(db):
+    create(ContactCreate(name="Isaac"))
+    create(ContactCreate(name="Isaiah"))
+    create(ContactCreate(name="Ivan"))
+    results = search_by_name("Isa")
+    assert len(results) == 2
+    assert {c.name for c in results} == {"Isaac", "Isaiah"}
 
 
 def test_search_by_name_case_insensitive(db):
