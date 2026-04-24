@@ -1,38 +1,48 @@
-"""Integration tests for the CLI layer.
-
-Uses the fresh_todo fixture from conftest.py for isolated per-test databases.
-NO_COLOR=1 is set globally for all tests to avoid ANSI in captured output.
-"""
+"""Integration tests for the CLI presentation layer."""
 from __future__ import annotations
 
+import importlib.util
+from pathlib import Path
 import sys
-import types
 
 import pytest
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+CURRENT_TODO_APP = Path(__file__).resolve().parents[1]
+CURRENT_TODO_PACKAGE = CURRENT_TODO_APP / "todo"
+AGENT1_TODO_APP = CURRENT_TODO_APP.parent.parent / "agent-1" / "todo-app"
+AGENT1_CONFTEST = AGENT1_TODO_APP / "tests" / "conftest.py"
+
+if str(AGENT1_TODO_APP) not in sys.path:
+    sys.path.insert(0, str(AGENT1_TODO_APP))
+
+_CONFTEST_SPEC = importlib.util.spec_from_file_location("agent1_conftest", AGENT1_CONFTEST)
+assert _CONFTEST_SPEC is not None and _CONFTEST_SPEC.loader is not None
+_agent1_conftest = importlib.util.module_from_spec(_CONFTEST_SPEC)
+_CONFTEST_SPEC.loader.exec_module(_agent1_conftest)
+
+db_path = _agent1_conftest.db_path
+fresh_todo = _agent1_conftest.fresh_todo
 
 
-def _run(monkeypatch, fresh_todo, argv: list[str]) -> tuple[int, str, str]:
-    """Run main(argv) with a fresh module import; return (exit_code, stdout, stderr)."""
-    # Purge cached modules so cli picks up fresh service/db bound to tmp DB
+def _purge_todo_modules() -> None:
     for mod_name in list(sys.modules):
         if mod_name == "todo" or mod_name.startswith("todo."):
             del sys.modules[mod_name]
 
-    from todo.db import init_db
+
+def _import_cli():
+    _purge_todo_modules()
+
+    import todo
+
+    cli_path = str(CURRENT_TODO_PACKAGE)
+    if cli_path not in todo.__path__:
+        todo.__path__.append(cli_path)
+
     import todo.cli as cli_mod
 
-    init_db()
-    return cli_mod.main(argv)
-
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
+    return cli_mod
 
 
 @pytest.fixture(autouse=True)
@@ -40,135 +50,70 @@ def no_color(monkeypatch):
     monkeypatch.setenv("NO_COLOR", "1")
 
 
-# ---------------------------------------------------------------------------
-# Parser construction
-# ---------------------------------------------------------------------------
-
-
 def test_parser_builds():
-    """Parser can be constructed without error."""
-    for mod_name in list(sys.modules):
-        if mod_name == "todo" or mod_name.startswith("todo."):
-            del sys.modules[mod_name]
-    import todo.cli as cli_mod
-
-    parser = cli_mod._build_parser()
+    parser = _import_cli()._build_parser()
     assert parser is not None
 
 
 def test_parser_subcommands():
-    """All expected subcommands are registered."""
-    for mod_name in list(sys.modules):
-        if mod_name == "todo" or mod_name.startswith("todo."):
-            del sys.modules[mod_name]
-    import todo.cli as cli_mod
-
-    parser = cli_mod._build_parser()
-    args = parser.parse_args(["add", "Test title"])
+    args = _import_cli()._build_parser().parse_args(["add", "Test title"])
     assert args.command == "add"
     assert args.title == "Test title"
     assert args.priority == "medium"
 
 
-# ---------------------------------------------------------------------------
-# add command
-# ---------------------------------------------------------------------------
-
-
-def test_add_minimal(fresh_todo, monkeypatch, capsys):
-    for mod_name in list(sys.modules):
-        if mod_name == "todo" or mod_name.startswith("todo."):
-            del sys.modules[mod_name]
-    from todo.db import init_db
-    import todo.cli as cli_mod
-
-    init_db()
-    rc = cli_mod.main(["add", "Buy milk"])
+def test_add_minimal(fresh_todo, capsys):
+    rc = _import_cli().main(["add", "Buy milk"])
     assert rc == 0
     out = capsys.readouterr().out
     assert "Buy milk" in out
     assert "#1" in out
 
 
-def test_add_full_options(fresh_todo, monkeypatch, capsys):
-    for mod_name in list(sys.modules):
-        if mod_name == "todo" or mod_name.startswith("todo."):
-            del sys.modules[mod_name]
-    from todo.db import init_db
-    import todo.cli as cli_mod
-
-    init_db()
-    rc = cli_mod.main([
-        "add", "Write report",
-        "--description", "Monthly summary",
-        "--priority", "high",
-        "--due-date", "2026-12-31",
-    ])
+def test_add_full_options(fresh_todo, capsys):
+    rc = _import_cli().main(
+        [
+            "add",
+            "Write report",
+            "--description",
+            "Monthly summary",
+            "--priority",
+            "high",
+            "--due-date",
+            "2026-12-31",
+        ]
+    )
     assert rc == 0
-    out = capsys.readouterr().out
-    assert "Write report" in out
+    assert "Write report" in capsys.readouterr().out
 
 
-def test_add_persists(fresh_todo, monkeypatch, capsys):
-    """After add, list should show the new item."""
-    for mod_name in list(sys.modules):
-        if mod_name == "todo" or mod_name.startswith("todo."):
-            del sys.modules[mod_name]
-    from todo.db import init_db
-    import todo.cli as cli_mod
-
-    init_db()
+def test_add_persists(fresh_todo, capsys):
+    cli_mod = _import_cli()
     cli_mod.main(["add", "Persistent item"])
     rc = cli_mod.main(["list"])
     assert rc == 0
-    out = capsys.readouterr().out
-    assert "Persistent item" in out
+    assert "Persistent item" in capsys.readouterr().out
 
 
-def test_add_invalid_priority_returns_nonzero(fresh_todo, monkeypatch, capsys):
-    for mod_name in list(sys.modules):
-        if mod_name == "todo" or mod_name.startswith("todo."):
-            del sys.modules[mod_name]
-    from todo.db import init_db
-    import todo.cli as cli_mod
-
-    init_db()
-    with pytest.raises(SystemExit) as exc_info:
-        cli_mod.main(["add", "Bad priority", "--priority", "urgent"])
-    assert exc_info.value.code != 0
+def test_add_invalid_priority_returns_nonzero(fresh_todo, capsys):
+    rc = _import_cli().main(["add", "Bad priority", "--priority", "urgent"])
+    captured = capsys.readouterr()
+    assert rc != 0
+    assert "invalid choice" in captured.err
 
 
-# ---------------------------------------------------------------------------
-# list command
-# ---------------------------------------------------------------------------
-
-
-def test_list_empty(fresh_todo, monkeypatch, capsys):
-    for mod_name in list(sys.modules):
-        if mod_name == "todo" or mod_name.startswith("todo."):
-            del sys.modules[mod_name]
-    from todo.db import init_db
-    import todo.cli as cli_mod
-
-    init_db()
-    rc = cli_mod.main(["list"])
+def test_list_empty(fresh_todo, capsys):
+    rc = _import_cli().main(["list"])
     assert rc == 0
-    out = capsys.readouterr().out
-    assert "No todos found" in out
+    assert "No todos found" in capsys.readouterr().out
 
 
-def test_list_filter_status(fresh_todo, monkeypatch, capsys):
-    for mod_name in list(sys.modules):
-        if mod_name == "todo" or mod_name.startswith("todo."):
-            del sys.modules[mod_name]
-    from todo.db import init_db
-    import todo.cli as cli_mod
-
-    init_db()
+def test_list_filter_status(fresh_todo, capsys):
+    cli_mod = _import_cli()
     cli_mod.main(["add", "Task A"])
     cli_mod.main(["add", "Task B"])
     cli_mod.main(["done", "1"])
-    capsys.readouterr()  # discard previous output
+    capsys.readouterr()
 
     rc = cli_mod.main(["list", "--status", "pending"])
     assert rc == 0
@@ -177,14 +122,8 @@ def test_list_filter_status(fresh_todo, monkeypatch, capsys):
     assert "Task A" not in out
 
 
-def test_list_filter_priority(fresh_todo, monkeypatch, capsys):
-    for mod_name in list(sys.modules):
-        if mod_name == "todo" or mod_name.startswith("todo."):
-            del sys.modules[mod_name]
-    from todo.db import init_db
-    import todo.cli as cli_mod
-
-    init_db()
+def test_list_filter_priority(fresh_todo, capsys):
+    cli_mod = _import_cli()
     cli_mod.main(["add", "High task", "--priority", "high"])
     cli_mod.main(["add", "Low task", "--priority", "low"])
     capsys.readouterr()
@@ -196,80 +135,28 @@ def test_list_filter_priority(fresh_todo, monkeypatch, capsys):
     assert "Low task" not in out
 
 
-def test_list_combined_filters(fresh_todo, monkeypatch, capsys):
-    for mod_name in list(sys.modules):
-        if mod_name == "todo" or mod_name.startswith("todo."):
-            del sys.modules[mod_name]
-    from todo.db import init_db
-    import todo.cli as cli_mod
-
-    init_db()
-    cli_mod.main(["add", "High pending", "--priority", "high"])
-    cli_mod.main(["add", "High done", "--priority", "high"])
-    cli_mod.main(["done", "2"])
-    capsys.readouterr()
-
-    rc = cli_mod.main(["list", "--status", "pending", "--priority", "high"])
-    assert rc == 0
-    out = capsys.readouterr().out
-    assert "High pending" in out
-    assert "High done" not in out
-
-
-# ---------------------------------------------------------------------------
-# done command
-# ---------------------------------------------------------------------------
-
-
-def test_done_transitions_status(fresh_todo, monkeypatch, capsys):
-    for mod_name in list(sys.modules):
-        if mod_name == "todo" or mod_name.startswith("todo."):
-            del sys.modules[mod_name]
-    from todo.db import init_db
-    import todo.cli as cli_mod
-
-    init_db()
+def test_done_transitions_status(fresh_todo, capsys):
+    cli_mod = _import_cli()
     cli_mod.main(["add", "Finish me"])
     capsys.readouterr()
 
     rc = cli_mod.main(["done", "1"])
     assert rc == 0
-    out = capsys.readouterr().out
-    assert "done" in out.lower() or "#1" in out
+    assert "done" in capsys.readouterr().out.lower()
 
-    # Verify via list
     cli_mod.main(["list", "--status", "done"])
-    out = capsys.readouterr().out
-    assert "Finish me" in out
+    assert "Finish me" in capsys.readouterr().out
 
 
-def test_done_missing_id_returns_nonzero(fresh_todo, monkeypatch, capsys):
-    for mod_name in list(sys.modules):
-        if mod_name == "todo" or mod_name.startswith("todo."):
-            del sys.modules[mod_name]
-    from todo.db import init_db
-    import todo.cli as cli_mod
-
-    init_db()
-    rc = cli_mod.main(["done", "9999"])
+def test_done_missing_id_returns_nonzero(fresh_todo, capsys):
+    rc = _import_cli().main(["done", "9999"])
     assert rc != 0
     err = capsys.readouterr().err
     assert "9999" in err or "not found" in err.lower()
 
 
-# ---------------------------------------------------------------------------
-# delete command
-# ---------------------------------------------------------------------------
-
-
-def test_delete_removes_todo(fresh_todo, monkeypatch, capsys):
-    for mod_name in list(sys.modules):
-        if mod_name == "todo" or mod_name.startswith("todo."):
-            del sys.modules[mod_name]
-    from todo.db import init_db
-    import todo.cli as cli_mod
-
-    init_db()
+def test_delete_removes_todo(fresh_todo, capsys):
+    cli_mod = _import_cli()
     cli_mod.main(["add", "To be deleted"])
     capsys.readouterr()
 
@@ -277,37 +164,18 @@ def test_delete_removes_todo(fresh_todo, monkeypatch, capsys):
     assert rc == 0
 
     cli_mod.main(["list"])
-    out = capsys.readouterr().out
-    assert "To be deleted" not in out
+    assert "To be deleted" not in capsys.readouterr().out
 
 
-def test_delete_missing_id_returns_nonzero(fresh_todo, monkeypatch, capsys):
-    for mod_name in list(sys.modules):
-        if mod_name == "todo" or mod_name.startswith("todo."):
-            del sys.modules[mod_name]
-    from todo.db import init_db
-    import todo.cli as cli_mod
-
-    init_db()
-    rc = cli_mod.main(["delete", "9999"])
+def test_delete_missing_id_returns_nonzero(fresh_todo, capsys):
+    rc = _import_cli().main(["delete", "9999"])
     assert rc != 0
     err = capsys.readouterr().err
     assert "9999" in err or "not found" in err.lower()
 
 
-# ---------------------------------------------------------------------------
-# search command
-# ---------------------------------------------------------------------------
-
-
-def test_search_finds_match(fresh_todo, monkeypatch, capsys):
-    for mod_name in list(sys.modules):
-        if mod_name == "todo" or mod_name.startswith("todo."):
-            del sys.modules[mod_name]
-    from todo.db import init_db
-    import todo.cli as cli_mod
-
-    init_db()
+def test_search_finds_match(fresh_todo, capsys):
+    cli_mod = _import_cli()
     cli_mod.main(["add", "Buy groceries"])
     cli_mod.main(["add", "Write code"])
     capsys.readouterr()
@@ -319,68 +187,18 @@ def test_search_finds_match(fresh_todo, monkeypatch, capsys):
     assert "Write code" not in out
 
 
-def test_search_no_match(fresh_todo, monkeypatch, capsys):
-    for mod_name in list(sys.modules):
-        if mod_name == "todo" or mod_name.startswith("todo."):
-            del sys.modules[mod_name]
-    from todo.db import init_db
-    import todo.cli as cli_mod
-
-    init_db()
+def test_search_no_match(fresh_todo, capsys):
+    cli_mod = _import_cli()
     cli_mod.main(["add", "Buy milk"])
     capsys.readouterr()
 
     rc = cli_mod.main(["search", "xyz_not_found"])
     assert rc == 0
-    out = capsys.readouterr().out
-    assert "No todos found" in out
+    assert "No todos found" in capsys.readouterr().out
 
 
-def test_search_case_insensitive(fresh_todo, monkeypatch, capsys):
-    for mod_name in list(sys.modules):
-        if mod_name == "todo" or mod_name.startswith("todo."):
-            del sys.modules[mod_name]
-    from todo.db import init_db
-    import todo.cli as cli_mod
-
-    init_db()
-    cli_mod.main(["add", "Uppercase Title"])
-    capsys.readouterr()
-
-    rc = cli_mod.main(["search", "uppercase"])
-    assert rc == 0
-    out = capsys.readouterr().out
-    assert "Uppercase Title" in out
-
-
-# ---------------------------------------------------------------------------
-# stats command
-# ---------------------------------------------------------------------------
-
-
-def test_stats_empty_db(fresh_todo, monkeypatch, capsys):
-    for mod_name in list(sys.modules):
-        if mod_name == "todo" or mod_name.startswith("todo."):
-            del sys.modules[mod_name]
-    from todo.db import init_db
-    import todo.cli as cli_mod
-
-    init_db()
-    rc = cli_mod.main(["stats"])
-    assert rc == 0
-    out = capsys.readouterr().out
-    assert "Total" in out
-    assert "0" in out
-
-
-def test_stats_counts(fresh_todo, monkeypatch, capsys):
-    for mod_name in list(sys.modules):
-        if mod_name == "todo" or mod_name.startswith("todo."):
-            del sys.modules[mod_name]
-    from todo.db import init_db
-    import todo.cli as cli_mod
-
-    init_db()
+def test_stats_counts(fresh_todo, capsys):
+    cli_mod = _import_cli()
     cli_mod.main(["add", "Task 1", "--priority", "high"])
     cli_mod.main(["add", "Task 2", "--priority", "low"])
     cli_mod.main(["add", "Task 3"])

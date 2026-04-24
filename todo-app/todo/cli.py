@@ -137,7 +137,10 @@ _COMMANDS = {
 def main(argv: list[str] | None = None) -> int:
     db.init_db()
     parser = _build_parser()
-    args = parser.parse_args(argv)
+    try:
+        args = parser.parse_args(argv)
+    except SystemExit as exc:
+        return exc.code if isinstance(exc.code, int) else 1
     handler = _COMMANDS[args.command]
     return handler(args)
 
