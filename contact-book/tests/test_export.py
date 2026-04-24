@@ -5,6 +5,7 @@ import io
 import json
 
 import pytest
+from pydantic import ValidationError
 
 from contacts.export import CSV_FIELDS, export_to_csv, export_to_json, import_from_csv
 from contacts.models import ContactCreate
@@ -31,7 +32,9 @@ def test_export_csv_with_rows(db):
     assert count == 3
 
     out.seek(0)
-    rows = list(csv.DictReader(out))
+    reader = csv.DictReader(out)
+    assert reader.fieldnames == list(CSV_FIELDS)
+    rows = list(reader)
     assert len(rows) == 3
     assert rows[0]["name"] == "Alice"
     assert rows[0]["email"] == "alice@example.com"
@@ -123,7 +126,7 @@ def test_import_ignores_id_and_timestamps(db):
 def test_import_missing_name_raises(db):
     csv_text = "name,email\n,alice@example.com\n"
     fp = io.StringIO(csv_text)
-    with pytest.raises((ValueError, Exception)):
+    with pytest.raises((ValueError, ValidationError)):
         import_from_csv(fp)
 
 
