@@ -4,87 +4,50 @@ A lightweight command-line todo manager backed by SQLite.
 
 ## Overview
 
-This is a simple yet effective todo management tool that stores tasks locally in an SQLite database. Each todo includes a title, description, priority level, and status tracking.
+This project provides a local todo CLI for creating, listing, completing, deleting, searching, and summarizing tasks from your terminal.
 
 ## Installation
 
-1. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. Install the application in development mode:
-   ```bash
-   pip install -e .
-   ```
-
-The `todo` command will now be available in your terminal.
+```bash
+pip install -e .
+```
 
 ## Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `TODO_DB_PATH` | Path to the SQLite database file | `~/.todo/todos.db` |
-| `NO_COLOR` | Disable ANSI color codes in output | (colors enabled by default) |
+| `NO_COLOR` | Disable ANSI color output | Disabled when set |
 
 ## Usage
 
-### Commands
-
-| Command | Arguments | Description |
-|---------|-----------|-------------|
-| `add` | `--title TITLE [--description DESC] [--priority PRIORITY] [--due-date DATE]` | Add a new todo item |
-| `list` | `[--status STATUS] [--priority PRIORITY]` | List all todos (optionally filtered) |
-| `done` | `ID` | Mark a todo as done |
-| `delete` | `ID` | Delete a todo by ID |
-| `search` | `KEYWORD` | Search todos by keyword in title and description |
-| `stats` | (none) | Display statistics about todos |
+| Command | Description | Example |
+|---------|-------------|---------|
+| `add` | Add a new todo item | `todo add "Buy milk"` |
+| `list` | List todo items | `todo list` |
+| `done` | Mark a todo as done | `todo done 1` |
+| `delete` | Delete a todo item | `todo delete 1` |
+| `search` | Search todo items | `todo search "milk"` |
+| `stats` | Show todo statistics | `todo stats` |
 
 ### Examples
 
-**Add a todo:**
 ```bash
-todo add --title "Buy groceries" --priority high
-todo add --title "Project draft" --description "Complete project proposal" --due-date 2026-05-01
-```
-
-**List todos:**
-```bash
+todo add "Buy milk"
 todo list
-todo list --status pending
-todo list --priority high
-```
-
-**Mark a todo as done:**
-```bash
 todo done 1
-```
-
-**Delete a todo:**
-```bash
-todo delete 2
-```
-
-**Search todos:**
-```bash
-todo search "project"
-```
-
-**View statistics:**
-```bash
+todo delete 1
+todo search "milk"
 todo stats
 ```
 
 ## Running Tests
 
 ```bash
-pytest tests/ -v
+pytest tests/
 ```
-
-Tests use a temporary SQLite database per test case for isolation.
 
 ## Notes
 
-- The `todo` binary name may conflict with other `todo` applications on your development machine. If this occurs, the last installed package with a `todo` console script will be used. Consider using a virtual environment to avoid conflicts.
-- The database file is stored in `~/.todo/` by default. You can override this location with the `TODO_DB_PATH` environment variable.
-- ANSI color codes are automatically disabled when piping output or when the `NO_COLOR` environment variable is set.
+- The `todo` binary name may conflict with other tools named `todo` on development machines.
+- If that conflict exists, use an isolated virtual environment so this package's `todo` entry point resolves predictably.
