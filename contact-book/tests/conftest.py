@@ -13,7 +13,7 @@ def db_path(tmp_path, monkeypatch) -> str:
 
 
 @pytest.fixture
-def fresh_db(db_path) -> str:
+def db(db_path) -> str:
     for mod_name in list(sys.modules):
         if mod_name == "contacts" or mod_name.startswith("contacts."):
             del sys.modules[mod_name]
@@ -22,3 +22,9 @@ def fresh_db(db_path) -> str:
 
     init_db()
     return db_path
+
+
+# Backward-compatible alias used by earlier test modules.
+@pytest.fixture
+def fresh_db(db) -> str:
+    return db
