@@ -6,6 +6,8 @@ from sqlite3 import Connection
 from contacts.db import get_db
 from contacts.models import Contact, ContactCreate, ContactUpdate
 
+_UPDATABLE_FIELDS = ("name", "email", "phone", "company", "notes")
+
 
 def _row_to_contact(row) -> Contact:
     return Contact(
@@ -71,13 +73,19 @@ def update(contact_id: str, data: ContactUpdate) -> Contact | None:
                 return None
             return _get_by_id_from_conn(conn, contact_id)
 
-    set_clause = ", ".join(f"{key} = ?" for key in fields)
-    values = list(fields.values())
+    assignments = []
+    values = []
+    for field_name in _UPDATABLE_FIELDS:
+        if field_name in fields:
+            assignments.append(field_name + " = ?")
+            values.append(fields[field_name])
     values.append(contact_id)
 
     with get_db() as conn:
         cur = conn.execute(
-            f"UPDATE contacts SET {set_clause}, updated_at = datetime('now') WHERE id = ?",
+            "UPDATE contacts SET "
+            + ", ".join(assignments)
+            + ", updated_at = datetime('now') WHERE id = ?",
             values,
         )
         if cur.rowcount == 0:
