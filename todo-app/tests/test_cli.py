@@ -1,7 +1,6 @@
 """Integration tests for the CLI presentation layer."""
 from __future__ import annotations
 
-import importlib.util
 from pathlib import Path
 import sys
 
@@ -10,19 +9,6 @@ import pytest
 
 CURRENT_TODO_APP = Path(__file__).resolve().parents[1]
 CURRENT_TODO_PACKAGE = CURRENT_TODO_APP / "todo"
-AGENT1_TODO_APP = CURRENT_TODO_APP.parent.parent / "agent-1" / "todo-app"
-AGENT1_CONFTEST = AGENT1_TODO_APP / "tests" / "conftest.py"
-
-if str(AGENT1_TODO_APP) not in sys.path:
-    sys.path.insert(0, str(AGENT1_TODO_APP))
-
-_CONFTEST_SPEC = importlib.util.spec_from_file_location("agent1_conftest", AGENT1_CONFTEST)
-assert _CONFTEST_SPEC is not None and _CONFTEST_SPEC.loader is not None
-_agent1_conftest = importlib.util.module_from_spec(_CONFTEST_SPEC)
-_CONFTEST_SPEC.loader.exec_module(_agent1_conftest)
-
-db_path = _agent1_conftest.db_path
-fresh_todo = _agent1_conftest.fresh_todo
 
 
 def _purge_todo_modules() -> None:
@@ -192,7 +178,7 @@ def test_search_no_match(fresh_todo, capsys):
     cli_mod.main(["add", "Buy milk"])
     capsys.readouterr()
 
-    rc = cli_mod.main(["search", "xyz_not_found"])
+    rc = _import_cli().main(["search", "xyz_not_found"])
     assert rc == 0
     assert "No todos found" in capsys.readouterr().out
 
